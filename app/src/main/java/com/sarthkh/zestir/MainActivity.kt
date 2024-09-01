@@ -11,8 +11,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
-import com.sarthkh.zestir.ui.theme.ZestirTheme
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import com.sarthkh.zestir.ui.theme.ZestirTheme
+import com.sarthkh.zestir.ui.theme.zestirTypography
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -35,8 +36,9 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun Greeting(name: String, modifier: Modifier = Modifier) {
     Text(
-        text = "Hello $name!",
-        modifier = modifier
+        text = "Zestir $name!",
+        modifier = modifier,
+        style = zestirTypography.displayLarge
     )
 }
 
