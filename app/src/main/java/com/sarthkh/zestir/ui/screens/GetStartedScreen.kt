@@ -40,11 +40,9 @@ fun GetStartedScreen(onGetStartedClick: () -> Unit) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(32.dp),
-            verticalArrangement = Arrangement.SpaceBetween,
+            verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(modifier = Modifier.weight(1f))
-
             Image(
                 painter = painterResource(id = logoResource),
                 contentDescription = "Zestir Logo",
@@ -56,24 +54,23 @@ fun GetStartedScreen(onGetStartedClick: () -> Unit) {
 
             Spacer(modifier = Modifier.height(48.dp))
 
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.weight(1f)
-            ) {
-                Text(
-                    text = "Welcome to Zestir",
-                    style = MaterialTheme.typography.headlineLarge,
-                    textAlign = TextAlign.Center,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    text = "Your personal fitness and productivity companion",
-                    style = MaterialTheme.typography.bodyLarge,
-                    textAlign = TextAlign.Center,
-                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
-                )
-            }
+            Text(
+                text = "Welcome to Zestir",
+                style = MaterialTheme.typography.headlineMedium,
+                textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = "Your personal fitness and productivity companion",
+                style = MaterialTheme.typography.bodyLarge,
+                textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
+            )
+
+            Spacer(modifier = Modifier.height(48.dp))
 
             Button(
                 onClick = onGetStartedClick,
@@ -89,8 +86,6 @@ fun GetStartedScreen(onGetStartedClick: () -> Unit) {
                     color = MaterialTheme.colorScheme.onPrimary
                 )
             }
-
-            Spacer(modifier = Modifier.weight(1f))
         }
     }
 }
