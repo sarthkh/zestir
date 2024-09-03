@@ -14,7 +14,7 @@ import androidx.compose.ui.unit.dp
 import com.sarthkh.zestir.R
 
 @Composable
-fun GetStartedScreen() {
+fun GetStartedScreen(onGetStartedClick: () -> Unit) {
     val logoResource =
         if (isSystemInDarkTheme()) R.drawable.splash_light else R.drawable.splash_dark
 
@@ -63,7 +63,7 @@ fun GetStartedScreen() {
             }
 
             Button(
-                onClick = {},
+                onClick = onGetStartedClick,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),
