@@ -52,6 +52,7 @@ android {
 dependencies {
     implementation(libs.core.splashscreen)
     implementation(libs.navigation.compose)
+    implementation(libs.androidx.material.icons.extended)
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)

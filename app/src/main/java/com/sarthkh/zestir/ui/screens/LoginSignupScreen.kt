@@ -23,18 +23,22 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -44,6 +48,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.sarthkh.zestir.R
 
@@ -53,6 +58,12 @@ fun LoginSignupScreen() {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var name by remember { mutableStateOf("") }
+    var isPasswordVisible by remember { mutableStateOf(false) }
+
+    var emailError by remember { mutableStateOf<String?>(null) }
+    var passwordError by remember { mutableStateOf<String?>(null) }
+    var nameError by remember { mutableStateOf<String?>(null) }
+
     val scrollState = rememberScrollState()
     val focusManager = LocalFocusManager.current
 
@@ -89,21 +100,29 @@ fun LoginSignupScreen() {
             ) {
                 OutlinedTextField(
                     value = name,
-                    onValueChange = { name = it },
+                    onValueChange = {
+                        name = it
+                        nameError = null
+                    },
                     label = { Text("Name") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                     keyboardActions = KeyboardActions(onNext = {
                         focusManager.moveFocus(FocusDirection.Down)
-                    })
+                    }),
+                    isError = nameError != null,
+                    supportingText = { nameError?.let { Text(it) } },
                 )
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
             OutlinedTextField(
                 value = email,
-                onValueChange = { email = it },
+                onValueChange = {
+                    email = it
+                    emailError = null
+                },
                 label = { Text("Email") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
@@ -113,31 +132,59 @@ fun LoginSignupScreen() {
                 ),
                 keyboardActions = KeyboardActions(onNext = {
                     focusManager.moveFocus(FocusDirection.Down)
-                })
+                }),
+                isError = emailError != null,
+                supportingText = { emailError?.let { Text(it) } },
             )
 
             Spacer(modifier = Modifier.height(16.dp))
 
             OutlinedTextField(
                 value = password,
-                onValueChange = { password = it },
+                onValueChange = {
+                    password = it
+                    passwordError = null
+                },
                 label = { Text("Password") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
-                visualTransformation = PasswordVisualTransformation(),
+                visualTransformation = if (isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Password,
                     imeAction = ImeAction.Done
                 ),
                 keyboardActions = KeyboardActions(onDone = {
                     focusManager.clearFocus()
-                })
+                }),
+                isError = passwordError != null,
+                supportingText = { passwordError?.let { Text(it) } },
+                trailingIcon = {
+                    IconButton(onClick = { isPasswordVisible = !isPasswordVisible }) {
+                        Icon(
+                            imageVector = if (isPasswordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                            contentDescription = if (isPasswordVisible) "Hide password" else "Show password"
+                        )
+                    }
+                }
             )
 
             Spacer(modifier = Modifier.height(32.dp))
 
             Button(
-                onClick = { /* handle login signup */ },
+                onClick = {
+                    val validationResult = validateInputs(isLogin, email, password, name)
+                    emailError = validationResult.emailError
+                    passwordError = validationResult.passwordError
+                    nameError = validationResult.nameError
+
+                    if (validationResult.isValid) {
+                        if (isLogin) {
+//                            do login
+                        } else {
+//                            do signup
+                        }
+                    }
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),
@@ -182,4 +229,77 @@ fun LoginSignupScreen() {
             }
         }
     }
+}
+
+private data class ValidationResult(
+    val isValid: Boolean,
+    val emailError: String? = null,
+    val passwordError: String? = null,
+    val nameError: String? = null
+)
+
+private fun validateInputs(
+    isLogin: Boolean,
+    email: String,
+    password: String,
+    name: String
+): ValidationResult {
+    var isValid = true
+    var nameError: String? = null
+    var emailError: String? = null
+    var passwordError: String? = null
+
+    if (!isLogin) {
+        when {
+            name.isBlank() -> {
+                nameError = "Name is required"
+                isValid = false
+            }
+
+            name.length < 2 -> {
+                nameError = "Name must be at least 2 characters long"
+                isValid = false
+            }
+        }
+    }
+
+    when {
+        email.isBlank() -> {
+            emailError = "Email is required"
+            isValid = false
+        }
+
+        !android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches() -> {
+            emailError = "Invalid email address"
+            isValid = false
+        }
+    }
+
+    when {
+        password.isBlank() -> {
+            passwordError = "Password is required"
+            isValid = false
+        }
+
+        password.length < 8 -> {
+            passwordError = "Password must be at least 8 characters long"
+        }
+
+        !password.any { it.isDigit() } -> {
+            passwordError = "Password must contain at least one digit"
+            isValid = false
+        }
+
+        !password.any { it.isUpperCase() } -> {
+            passwordError = "Password must contain at least one uppercase letter"
+            isValid = false
+        }
+
+        !password.any { it.isLowerCase() } -> {
+            passwordError = "Password must contain at least one lowercase letter"
+            isValid = false
+        }
+    }
+
+    return ValidationResult(isValid, emailError, passwordError, nameError)
 }
