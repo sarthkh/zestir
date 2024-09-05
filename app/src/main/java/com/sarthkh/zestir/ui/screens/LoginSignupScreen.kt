@@ -5,6 +5,7 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -28,6 +29,7 @@ import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -39,6 +41,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -50,6 +53,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import com.sarthkh.zestir.R
 
 @Composable
@@ -59,6 +64,7 @@ fun LoginSignupScreen() {
     var password by remember { mutableStateOf("") }
     var name by remember { mutableStateOf("") }
     var isPasswordVisible by remember { mutableStateOf(false) }
+    var isLoading by remember { mutableStateOf(false) }
 
     var emailError by remember { mutableStateOf<String?>(null) }
     var passwordError by remember { mutableStateOf<String?>(null) }
@@ -66,12 +72,14 @@ fun LoginSignupScreen() {
 
     val scrollState = rememberScrollState()
     val focusManager = LocalFocusManager.current
+    val scope = rememberCoroutineScope()
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .imePadding()
             .systemBarsPadding()
+            .background(MaterialTheme.colorScheme.background)
     ) {
         Column(
             modifier = Modifier
@@ -98,57 +106,40 @@ fun LoginSignupScreen() {
                 enter = fadeIn() + expandVertically(),
                 exit = fadeOut() + shrinkVertically()
             ) {
-                OutlinedTextField(
+                CustomTextField(
                     value = name,
-                    onValueChange = {
-                        name = it
-                        nameError = null
-                    },
-                    label = { Text("Name") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
+                    onValueChange = { name = it; nameError = null },
+                    label = "Name",
+                    error = nameError,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                     keyboardActions = KeyboardActions(onNext = {
                         focusManager.moveFocus(FocusDirection.Down)
-                    }),
-                    isError = nameError != null,
-                    supportingText = { nameError?.let { Text(it) } },
+                    })
                 )
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
-            OutlinedTextField(
+            CustomTextField(
                 value = email,
-                onValueChange = {
-                    email = it
-                    emailError = null
-                },
-                label = { Text("Email") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
+                onValueChange = { email = it; emailError = null },
+                label = "Email",
+                error = emailError,
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Email,
                     imeAction = ImeAction.Next
                 ),
                 keyboardActions = KeyboardActions(onNext = {
                     focusManager.moveFocus(FocusDirection.Down)
-                }),
-                isError = emailError != null,
-                supportingText = { emailError?.let { Text(it) } },
+                })
             )
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            OutlinedTextField(
+            CustomTextField(
                 value = password,
-                onValueChange = {
-                    password = it
-                    passwordError = null
-                },
-                label = { Text("Password") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-                visualTransformation = if (isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                onValueChange = { password = it; passwordError = null },
+                label = "Password",
+                error = passwordError,
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Password,
                     imeAction = ImeAction.Done
@@ -156,21 +147,26 @@ fun LoginSignupScreen() {
                 keyboardActions = KeyboardActions(onDone = {
                     focusManager.clearFocus()
                 }),
-                isError = passwordError != null,
-                supportingText = { passwordError?.let { Text(it) } },
-                trailingIcon = {
-                    IconButton(onClick = { isPasswordVisible = !isPasswordVisible }) {
-                        Icon(
-                            imageVector = if (isPasswordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                            contentDescription = if (isPasswordVisible) "Hide password" else "Show password"
-                        )
-                    }
-                }
+                isPassword = true,
+                isPasswordVisible = isPasswordVisible,
+                onPasswordVisibilityToggle = { isPasswordVisible = !isPasswordVisible }
             )
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-            Button(
+            AnimatedVisibility(visible = isLogin) {
+                TextButton(
+                    onClick = { /* handle forgot password */ },
+                    modifier = Modifier.align(Alignment.End)
+                ) {
+                    Text("Forgot Password?")
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            CustomButton(
+                text = if (isLogin) "Login" else "Sign Up",
                 onClick = {
                     val validationResult = validateInputs(isLogin, email, password, name)
                     emailError = validationResult.emailError
@@ -178,42 +174,30 @@ fun LoginSignupScreen() {
                     nameError = validationResult.nameError
 
                     if (validationResult.isValid) {
-                        if (isLogin) {
-//                            do login
-                        } else {
-//                            do signup
+                        isLoading = true
+                        scope.launch {
+//                            do api call, to handle login/signup
+                            delay(2000)
+                            isLoading = false
                         }
                     }
                 },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary
-                )
-            ) {
-                Text(if (isLogin) "Login" else "Sign Up")
-            }
+                isLoading = isLoading
+            )
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            OutlinedButton(
+            CustomOutlinedButton(
+                text = "Continue with Google",
                 onClick = { /* handle google signin */ },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-                colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = MaterialTheme.colorScheme.primary
-                )
-            ) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_google_logo),
-                    contentDescription = "Google logo",
-                    modifier = Modifier.size(24.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Continue with Google")
-            }
+                icon = {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_google_logo),
+                        contentDescription = "Google logo",
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            )
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -228,6 +212,88 @@ fun LoginSignupScreen() {
                 )
             }
         }
+    }
+}
+
+@Composable
+fun CustomTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    error: String?,
+    keyboardOptions: KeyboardOptions,
+    keyboardActions: KeyboardActions,
+    isPassword: Boolean = false,
+    isPasswordVisible: Boolean = false,
+    onPasswordVisibilityToggle: () -> Unit = {}
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text(label) },
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth(),
+        keyboardOptions = keyboardOptions,
+        keyboardActions = keyboardActions,
+        isError = error != null,
+        supportingText = { error?.let { Text(it) } },
+        visualTransformation = if (isPassword && !isPasswordVisible) PasswordVisualTransformation() else VisualTransformation.None,
+        trailingIcon = if (isPassword) {
+            {
+                IconButton(onClick = onPasswordVisibilityToggle) {
+                    Icon(
+                        imageVector = if (isPasswordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                        contentDescription = if (isPasswordVisible) "Hide password" else "Show password"
+                    )
+                }
+            }
+        } else null
+    )
+}
+
+@Composable
+fun CustomButton(
+    text: String,
+    onClick: () -> Unit,
+    isLoading: Boolean = false
+) {
+    Button(
+        onClick = onClick,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(56.dp),
+        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+        shape = MaterialTheme.shapes.medium,
+        enabled = !isLoading
+    ) {
+        if (isLoading) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(24.dp),
+                color = MaterialTheme.colorScheme.onPrimary
+            )
+        } else {
+            Text(text)
+        }
+    }
+}
+
+@Composable
+fun CustomOutlinedButton(
+    text: String,
+    onClick: () -> Unit,
+    icon: @Composable () -> Unit
+) {
+    OutlinedButton(
+        onClick = onClick,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(56.dp),
+        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary),
+        shape = MaterialTheme.shapes.medium
+    ) {
+        icon()
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(text)
     }
 }
 
