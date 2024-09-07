@@ -1,5 +1,7 @@
 package com.sarthkh.zestir.ui.screens
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -8,18 +10,7 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.systemBarsPadding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -27,25 +18,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.ImeAction
@@ -53,18 +31,22 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.sarthkh.zestir.R
+import com.sarthkh.zestir.auth.AuthState
+import com.sarthkh.zestir.auth.AuthViewModel
 
 @Composable
-fun LoginSignupScreen() {
+fun LoginSignupScreen(
+    authViewModel: AuthViewModel,
+    onAuthSuccess: () -> Unit
+) {
     var isLogin by remember { mutableStateOf(true) }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var name by remember { mutableStateOf("") }
     var isPasswordVisible by remember { mutableStateOf(false) }
-    var isLoading by remember { mutableStateOf(false) }
 
     var emailError by remember { mutableStateOf<String?>(null) }
     var passwordError by remember { mutableStateOf<String?>(null) }
@@ -72,7 +54,32 @@ fun LoginSignupScreen() {
 
     val scrollState = rememberScrollState()
     val focusManager = LocalFocusManager.current
-    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+
+    val authState by authViewModel.authState.collectAsState()
+
+    val googleSignInLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+        try {
+            val account = task.result
+            authViewModel.googleSignIn(account)
+        } catch (e: Exception) {
+            // Handle Google Sign-In error
+        }
+    }
+
+    LaunchedEffect(authState) {
+        when (authState) {
+            is AuthState.Success -> onAuthSuccess()
+            is AuthState.Error -> {
+                // Show error message
+            }
+
+            else -> {}
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -174,22 +181,28 @@ fun LoginSignupScreen() {
                     nameError = validationResult.nameError
 
                     if (validationResult.isValid) {
-                        isLoading = true
-                        scope.launch {
-//                            do api call, to handle login/signup
-                            delay(2000)
-                            isLoading = false
+                        if (isLogin) {
+                            authViewModel.login(email, password)
+                        } else {
+                            authViewModel.signUp(email, password)
                         }
                     }
                 },
-                isLoading = isLoading
+                isLoading = authState is AuthState.Loading
             )
 
             Spacer(modifier = Modifier.height(16.dp))
 
             CustomOutlinedButton(
                 text = "Continue with Google",
-                onClick = { /* handle google signin */ },
+                onClick = {
+                    val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+                        .requestIdToken(context.getString(R.string.default_web_client_id))
+                        .requestEmail()
+                        .build()
+                    val googleSignInClient = GoogleSignIn.getClient(context, gso)
+                    googleSignInLauncher.launch(googleSignInClient.signInIntent)
+                },
                 icon = {
                     Icon(
                         painter = painterResource(id = R.drawable.ic_google_logo),
@@ -349,6 +362,7 @@ private fun validateInputs(
 
         password.length < 8 -> {
             passwordError = "Password must be at least 8 characters long"
+            isValid = false
         }
 
         !password.any { it.isDigit() } -> {
