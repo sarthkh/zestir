@@ -3,9 +3,9 @@ package com.sarthkh.zestir.ui
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import com.sarthkh.zestir.auth.AuthViewModel
 import com.sarthkh.zestir.auth.AuthState
 import com.sarthkh.zestir.ui.screens.GetStartedScreen
@@ -13,7 +13,8 @@ import com.sarthkh.zestir.ui.screens.LoginSignupScreen
 import com.sarthkh.zestir.ui.screens.HomeScreen
 
 @Composable
-fun NavGraph(navController: NavHostController, authViewModel: AuthViewModel) {
+fun NavGraph(authViewModel: AuthViewModel) {
+    val navController = rememberNavController()
     val authState by authViewModel.authState.collectAsState()
 
     NavHost(

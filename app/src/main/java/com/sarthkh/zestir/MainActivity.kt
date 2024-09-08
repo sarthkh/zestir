@@ -10,19 +10,18 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
-import androidx.navigation.compose.rememberNavController
+import androidx.lifecycle.lifecycleScope
 import com.google.firebase.FirebaseApp
-import com.sarthkh.zestir.auth.AuthRepository
 import com.sarthkh.zestir.auth.AuthViewModel
 import com.sarthkh.zestir.ui.NavGraph
 import com.sarthkh.zestir.ui.theme.ZestirTheme
+import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
-    private val authViewModel: AuthViewModel by viewModels {
-        AuthViewModelFactory(AuthRepository())
-    }
+    private val authViewModel: AuthViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -37,20 +36,16 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    val navController = rememberNavController()
-                    NavGraph(navController = navController, authViewModel = authViewModel)
+                    NavGraph(authViewModel = authViewModel)
                 }
             }
         }
-    }
-}
 
-class AuthViewModelFactory(private val repository: AuthRepository) : ViewModelProvider.Factory {
-    override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        if (modelClass.isAssignableFrom(AuthViewModel::class.java)) {
-            @Suppress("UNCHECKED_CAST")
-            return AuthViewModel(repository) as T
+        // Observe auth state changes
+        lifecycleScope.launch {
+            authViewModel.authState.collectLatest { state ->
+                // Handle auth state changes (e.g., navigate to appropriate screen)
+            }
         }
-        throw IllegalArgumentException("Unknown ViewModel class")
     }
 }
