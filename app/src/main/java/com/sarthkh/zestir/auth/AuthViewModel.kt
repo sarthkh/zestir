@@ -2,78 +2,86 @@ package com.sarthkh.zestir.auth
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.google.android.gms.auth.api.signin.GoogleSignInAccount
 import com.google.firebase.auth.FirebaseUser
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
-class AuthViewModel @Inject constructor(
-    private val repository: AuthRepository
-) : ViewModel() {
+class AuthViewModel @Inject constructor(private val repository: AuthRepository) : ViewModel() {
+
     private val _authState = MutableStateFlow<AuthState>(AuthState.Initial)
-    val authState: StateFlow<AuthState> = _authState.asStateFlow()
+    val authState: StateFlow<AuthState> = _authState
 
     init {
-        checkAuthState()
-    }
-
-    private fun checkAuthState() {
         viewModelScope.launch {
-            _authState.value = if (repository.isUserLoggedIn()) {
-                AuthState.Success(repository.getCurrentUser()!!)
-            } else {
-                AuthState.Initial
+            repository.currentUser.collect { user ->
+                _authState.value =
+                    if (user != null) AuthState.Authenticated(user) else AuthState.Unauthenticated
             }
         }
     }
 
-    fun signUp(email: String, password: String) {
-        viewModelScope.launch {
-            _authState.value = AuthState.Loading
-            val result = repository.signUp(email, password)
-            _authState.value = result.fold(
-                onSuccess = { AuthState.Success(it) },
-                onFailure = { AuthState.Error(it.message ?: "Unknown error") }
-            )
-        }
+    fun signUp(email: String, password: String) = handleAuthAction {
+        repository.signUp(email, password)
     }
 
-    fun login(email: String, password: String) {
-        viewModelScope.launch {
-            _authState.value = AuthState.Loading
-            val result = repository.login(email, password)
-            _authState.value = result.fold(
-                onSuccess = { AuthState.Success(it) },
-                onFailure = { AuthState.Error(it.message ?: "Unknown error") }
-            )
-        }
+    fun login(email: String, password: String) = handleAuthAction {
+        repository.login(email, password)
     }
 
-    fun googleSignIn(account: GoogleSignInAccount) {
-        viewModelScope.launch {
-            _authState.value = AuthState.Loading
-            val result = repository.googleSignIn(account)
-            _authState.value = result.fold(
-                onSuccess = { AuthState.Success(it) },
-                onFailure = { AuthState.Error(it.message ?: "Unknown error") }
-            )
-        }
+    fun googleSignIn(idToken: String) = handleAuthAction {
+        repository.googleSignIn(idToken)
     }
 
     fun logout() {
         repository.logout()
-        _authState.value = AuthState.Initial
+        _authState.value = AuthState.Unauthenticated
+    }
+
+    fun sendPasswordResetEmail(email: String) {
+        viewModelScope.launch {
+            _authState.value = AuthState.Loading
+            repository.sendPasswordResetEmail(email)
+                .onSuccess { _authState.value = AuthState.PasswordResetEmailSent }
+                .onFailure {
+                    _authState.value =
+                        AuthState.Error(it.message ?: "Failed to send password reset email")
+                }
+        }
+    }
+
+    fun updatePassword(newPassword: String) {
+        viewModelScope.launch {
+            _authState.value = AuthState.Loading
+            repository.updatePassword(newPassword)
+                .onSuccess { _authState.value = AuthState.PasswordUpdated }
+                .onFailure {
+                    _authState.value = AuthState.Error(it.message ?: "Failed to update password")
+                }
+        }
+    }
+
+    private fun handleAuthAction(action: suspend () -> Result<FirebaseUser>) {
+        viewModelScope.launch {
+            _authState.value = AuthState.Loading
+            action()
+                .onSuccess { _authState.value = AuthState.Authenticated(it) }
+                .onFailure {
+                    _authState.value = AuthState.Error(it.message ?: "Authentication failed")
+                }
+        }
     }
 }
 
 sealed class AuthState {
     object Initial : AuthState()
     object Loading : AuthState()
-    data class Success(val user: FirebaseUser) : AuthState()
+    data class Authenticated(val user: FirebaseUser) : AuthState()
+    object Unauthenticated : AuthState()
     data class Error(val message: String) : AuthState()
+    object PasswordResetEmailSent : AuthState()
+    object PasswordUpdated : AuthState()
 }

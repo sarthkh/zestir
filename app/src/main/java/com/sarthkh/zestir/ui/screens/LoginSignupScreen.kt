@@ -2,19 +2,10 @@ package com.sarthkh.zestir.ui.screens
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.animation.*
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
@@ -31,6 +22,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.sarthkh.zestir.R
@@ -39,24 +31,24 @@ import com.sarthkh.zestir.auth.AuthViewModel
 
 @Composable
 fun LoginSignupScreen(
-    authViewModel: AuthViewModel,
-    onAuthSuccess: () -> Unit
+    onAuthSuccess: () -> Unit,
+    viewModel: AuthViewModel = hiltViewModel()
 ) {
     var isLogin by remember { mutableStateOf(true) }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var name by remember { mutableStateOf("") }
     var isPasswordVisible by remember { mutableStateOf(false) }
+    var showResetPassword by remember { mutableStateOf(false) }
 
     var emailError by remember { mutableStateOf<String?>(null) }
     var passwordError by remember { mutableStateOf<String?>(null) }
     var nameError by remember { mutableStateOf<String?>(null) }
 
-    val scrollState = rememberScrollState()
     val focusManager = LocalFocusManager.current
     val context = LocalContext.current
 
-    val authState by authViewModel.authState.collectAsState()
+    val authState by viewModel.authState.collectAsState()
 
     val googleSignInLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
@@ -64,7 +56,7 @@ fun LoginSignupScreen(
         val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
         try {
             val account = task.result
-            authViewModel.googleSignIn(account)
+            account.idToken?.let { viewModel.googleSignIn(it) }
         } catch (e: Exception) {
             // Handle Google Sign-In error
         }
@@ -72,9 +64,13 @@ fun LoginSignupScreen(
 
     LaunchedEffect(authState) {
         when (authState) {
-            is AuthState.Success -> onAuthSuccess()
+            is AuthState.Authenticated -> onAuthSuccess()
             is AuthState.Error -> {
-                // Show error message
+                // Show error message using a Snackbar or Dialog
+            }
+
+            is AuthState.PasswordResetEmailSent -> {
+                // Show success message for password reset email
             }
 
             else -> {}
@@ -84,26 +80,16 @@ fun LoginSignupScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .imePadding()
-            .systemBarsPadding()
-            .background(MaterialTheme.colorScheme.background)
+            .padding(16.dp)
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(scrollState)
-                .padding(32.dp)
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null
-                ) { focusManager.clearFocus() },
+            modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
                 text = if (isLogin) "Welcome Back" else "Create Account",
-                style = MaterialTheme.typography.headlineMedium,
-                color = MaterialTheme.colorScheme.onBackground
+                style = MaterialTheme.typography.headlineMedium
             )
 
             Spacer(modifier = Modifier.height(32.dp))
@@ -113,40 +99,46 @@ fun LoginSignupScreen(
                 enter = fadeIn() + expandVertically(),
                 exit = fadeOut() + shrinkVertically()
             ) {
-                CustomTextField(
+                OutlinedTextField(
                     value = name,
                     onValueChange = { name = it; nameError = null },
-                    label = "Name",
-                    error = nameError,
+                    label = { Text("Name") },
+                    isError = nameError != null,
+                    supportingText = { nameError?.let { Text(it) } },
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                     keyboardActions = KeyboardActions(onNext = {
                         focusManager.moveFocus(FocusDirection.Down)
-                    })
+                    }),
+                    modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
-            CustomTextField(
+            OutlinedTextField(
                 value = email,
                 onValueChange = { email = it; emailError = null },
-                label = "Email",
-                error = emailError,
+                label = { Text("Email") },
+                isError = emailError != null,
+                supportingText = { emailError?.let { Text(it) } },
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Email,
                     imeAction = ImeAction.Next
                 ),
                 keyboardActions = KeyboardActions(onNext = {
                     focusManager.moveFocus(FocusDirection.Down)
-                })
+                }),
+                modifier = Modifier.fillMaxWidth()
             )
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            CustomTextField(
+            OutlinedTextField(
                 value = password,
                 onValueChange = { password = it; passwordError = null },
-                label = "Password",
-                error = passwordError,
+                label = { Text("Password") },
+                isError = passwordError != null,
+                supportingText = { passwordError?.let { Text(it) } },
+                visualTransformation = if (isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Password,
                     imeAction = ImeAction.Done
@@ -154,47 +146,50 @@ fun LoginSignupScreen(
                 keyboardActions = KeyboardActions(onDone = {
                     focusManager.clearFocus()
                 }),
-                isPassword = true,
-                isPasswordVisible = isPasswordVisible,
-                onPasswordVisibilityToggle = { isPasswordVisible = !isPasswordVisible }
+                trailingIcon = {
+                    IconButton(onClick = { isPasswordVisible = !isPasswordVisible }) {
+                        Icon(
+                            imageVector = if (isPasswordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                            contentDescription = if (isPasswordVisible) "Hide password" else "Show password"
+                        )
+                    }
+                },
+                modifier = Modifier.fillMaxWidth()
             )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            AnimatedVisibility(visible = isLogin) {
-                TextButton(
-                    onClick = { /* handle forgot password */ },
-                    modifier = Modifier.align(Alignment.End)
-                ) {
-                    Text("Forgot Password?")
-                }
-            }
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            CustomButton(
-                text = if (isLogin) "Login" else "Sign Up",
+            Button(
                 onClick = {
-                    val validationResult = validateInputs(isLogin, email, password, name)
-                    emailError = validationResult.emailError
-                    passwordError = validationResult.passwordError
-                    nameError = validationResult.nameError
-
-                    if (validationResult.isValid) {
+                    val (nameErr, emailErr, passwordErr) = validateInputs(
+                        isLogin,
+                        email,
+                        password,
+                        name
+                    )
+                    if (nameErr == null && emailErr == null && passwordErr == null) {
                         if (isLogin) {
-                            authViewModel.login(email, password)
+                            viewModel.login(email, password)
                         } else {
-                            authViewModel.signUp(email, password)
+                            viewModel.signUp(email, password)
                         }
+                    } else {
+                        // Update error states
+                        nameError = nameErr
+                        emailError = emailErr
+                        passwordError = passwordErr
                     }
                 },
-                isLoading = authState is AuthState.Loading
-            )
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp)
+            ) {
+                Text(text = if (isLogin) "Login" else "Sign Up")
+            }
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            CustomOutlinedButton(
-                text = "Continue with Google",
+            OutlinedButton(
                 onClick = {
                     val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
                         .requestIdToken(context.getString(R.string.default_web_client_id))
@@ -203,14 +198,23 @@ fun LoginSignupScreen(
                     val googleSignInClient = GoogleSignIn.getClient(context, gso)
                     googleSignInLauncher.launch(googleSignInClient.signInIntent)
                 },
-                icon = {
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
                     Icon(
                         painter = painterResource(id = R.drawable.ic_google_logo),
                         contentDescription = "Google logo",
                         modifier = Modifier.size(24.dp)
                     )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Continue with Google")
                 }
-            )
+            }
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -219,167 +223,80 @@ fun LoginSignupScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
-                    text = if (isLogin) "Don't have an account? Sign Up" else "Already have an account? Login",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.primary
+                    text = if (isLogin) "Don't have an account? Sign Up" else "Already have an account? Login"
                 )
             }
-        }
-    }
-}
 
-@Composable
-fun CustomTextField(
-    value: String,
-    onValueChange: (String) -> Unit,
-    label: String,
-    error: String?,
-    keyboardOptions: KeyboardOptions,
-    keyboardActions: KeyboardActions,
-    isPassword: Boolean = false,
-    isPasswordVisible: Boolean = false,
-    onPasswordVisibilityToggle: () -> Unit = {}
-) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
-        label = { Text(label) },
-        singleLine = true,
-        modifier = Modifier.fillMaxWidth(),
-        keyboardOptions = keyboardOptions,
-        keyboardActions = keyboardActions,
-        isError = error != null,
-        supportingText = { error?.let { Text(it) } },
-        visualTransformation = if (isPassword && !isPasswordVisible) PasswordVisualTransformation() else VisualTransformation.None,
-        trailingIcon = if (isPassword) {
-            {
-                IconButton(onClick = onPasswordVisibilityToggle) {
-                    Icon(
-                        imageVector = if (isPasswordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                        contentDescription = if (isPasswordVisible) "Hide password" else "Show password"
-                    )
+            if (isLogin) {
+                TextButton(
+                    onClick = { showResetPassword = true },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Forgot Password?")
                 }
             }
-        } else null
-    )
-}
+        }
 
-@Composable
-fun CustomButton(
-    text: String,
-    onClick: () -> Unit,
-    isLoading: Boolean = false
-) {
-    Button(
-        onClick = onClick,
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(56.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-        shape = MaterialTheme.shapes.medium,
-        enabled = !isLoading
-    ) {
-        if (isLoading) {
-            CircularProgressIndicator(
-                modifier = Modifier.size(24.dp),
-                color = MaterialTheme.colorScheme.onPrimary
+        if (showResetPassword) {
+            AlertDialog(
+                onDismissRequest = { showResetPassword = false },
+                title = { Text("Reset Password") },
+                text = {
+                    OutlinedTextField(
+                        value = email,
+                        onValueChange = { email = it },
+                        label = { Text("Email") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            viewModel.sendPasswordResetEmail(email)
+                            showResetPassword = false
+                        }
+                    ) {
+                        Text("Send Reset Email")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showResetPassword = false }) {
+                        Text("Cancel")
+                    }
+                }
             )
-        } else {
-            Text(text)
+        }
+
+        if (authState is AuthState.Loading) {
+            CircularProgressIndicator(
+                modifier = Modifier.align(Alignment.Center)
+            )
         }
     }
 }
-
-@Composable
-fun CustomOutlinedButton(
-    text: String,
-    onClick: () -> Unit,
-    icon: @Composable () -> Unit
-) {
-    OutlinedButton(
-        onClick = onClick,
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(56.dp),
-        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary),
-        shape = MaterialTheme.shapes.medium
-    ) {
-        icon()
-        Spacer(modifier = Modifier.width(8.dp))
-        Text(text)
-    }
-}
-
-private data class ValidationResult(
-    val isValid: Boolean,
-    val emailError: String? = null,
-    val passwordError: String? = null,
-    val nameError: String? = null
-)
 
 private fun validateInputs(
     isLogin: Boolean,
     email: String,
     password: String,
     name: String
-): ValidationResult {
-    var isValid = true
+): Triple<String?, String?, String?> {
     var nameError: String? = null
     var emailError: String? = null
     var passwordError: String? = null
 
-    if (!isLogin) {
-        when {
-            name.isBlank() -> {
-                nameError = "Name is required"
-                isValid = false
-            }
-
-            name.length < 2 -> {
-                nameError = "Name must be at least 2 characters long"
-                isValid = false
-            }
-        }
+    if (!isLogin && name.length < 2) {
+        nameError = "Name must be at least 2 characters long"
     }
 
-    when {
-        email.isBlank() -> {
-            emailError = "Email is required"
-            isValid = false
-        }
-
-        !android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches() -> {
-            emailError = "Invalid email address"
-            isValid = false
-        }
+    if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+        emailError = "Invalid email address"
     }
 
-    when {
-        password.isBlank() -> {
-            passwordError = "Password is required"
-            isValid = false
-        }
-
-        password.length < 8 -> {
-            passwordError = "Password must be at least 8 characters long"
-            isValid = false
-        }
-
-        !password.any { it.isDigit() } -> {
-            passwordError = "Password must contain at least one digit"
-            isValid = false
-        }
-
-        !password.any { it.isUpperCase() } -> {
-            passwordError = "Password must contain at least one uppercase letter"
-            isValid = false
-        }
-
-        !password.any { it.isLowerCase() } -> {
-            passwordError = "Password must contain at least one lowercase letter"
-            isValid = false
-        }
+    if (password.length < 8) {
+        passwordError = "Password must be at least 8 characters long"
     }
 
-    return ValidationResult(isValid, emailError, passwordError, nameError)
+    return Triple(nameError, emailError, passwordError)
 }
