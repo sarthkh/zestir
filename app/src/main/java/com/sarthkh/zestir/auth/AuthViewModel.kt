@@ -74,6 +74,8 @@ class AuthViewModel @Inject constructor(private val repository: AuthRepository) 
                 }
         }
     }
+
+    fun isUserAuthenticated(): Boolean = repository.isUserAuthenticated()
 }
 
 sealed class AuthState {

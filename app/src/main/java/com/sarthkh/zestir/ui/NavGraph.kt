@@ -1,6 +1,7 @@
 package com.sarthkh.zestir.ui
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -18,12 +19,21 @@ fun NavGraph(authViewModel: AuthViewModel = hiltViewModel()) {
     val navController = rememberNavController()
     val authState by authViewModel.authState.collectAsState()
 
+    LaunchedEffect(authState) {
+        when (authState) {
+            is AuthState.Authenticated -> navController.navigate("home") {
+                popUpTo("get_started") { inclusive = true }
+            }
+            is AuthState.Unauthenticated -> navController.navigate("get_started") {
+                popUpTo("home") { inclusive = true }
+            }
+            else -> {} // Do nothing for other states
+        }
+    }
+
     NavHost(
         navController = navController,
-        startDestination = when (authState) {
-            is AuthState.Authenticated -> "home"
-            else -> "get_started"
-        }
+        startDestination = if (authViewModel.isUserAuthenticated()) "home" else "get_started"
     ) {
         composable("get_started") {
             GetStartedScreen(onGetStartedClick = {

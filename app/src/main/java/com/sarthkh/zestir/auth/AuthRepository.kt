@@ -48,4 +48,6 @@ class AuthRepository @Inject constructor(private val auth: FirebaseAuth) {
         val user = auth.currentUser ?: throw IllegalStateException("User is not authenticated")
         user.updatePassword(newPassword).await()
     }
+
+    fun isUserAuthenticated(): Boolean = auth.currentUser != null
 }
