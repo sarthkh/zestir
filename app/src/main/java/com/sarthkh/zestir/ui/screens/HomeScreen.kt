@@ -18,46 +18,68 @@ fun HomeScreen(
 ) {
     val authState by viewModel.authState.collectAsState()
 
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
+            .padding(32.dp)
+            .systemBarsPadding()
     ) {
         when (val state = authState) {
             is AuthState.Authenticated -> {
-                Text(
-                    text = "Welcome to Zestir!",
-                    style = MaterialTheme.typography.headlineMedium,
-                    textAlign = TextAlign.Center
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    text = "You're logged in as ${state.user.email}",
-                    style = MaterialTheme.typography.bodyLarge,
-                    textAlign = TextAlign.Center
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "User ID: ${state.user.uid}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    textAlign = TextAlign.Center
-                )
-                Spacer(modifier = Modifier.height(32.dp))
-                Button(onClick = onLogout) {
-                    Text("Logout")
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.SpaceBetween,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Spacer(modifier = Modifier.height(48.dp))
+
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "Welcome to Zestir!",
+                            style = MaterialTheme.typography.headlineMedium,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = "You're logged in as ${state.user.email}",
+                            style = MaterialTheme.typography.bodyLarge,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "User ID: ${state.user.uid}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+
+                    Button(
+                        onClick = onLogout,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                        shape = MaterialTheme.shapes.medium
+                    ) {
+                        Text(
+                            text = "Logout",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onPrimary
+                        )
+                    }
                 }
             }
+
             is AuthState.Loading -> {
-                CircularProgressIndicator()
-            }
-            else -> {
-                Text(
-                    text = "You're not authenticated. Please log in.",
-                    style = MaterialTheme.typography.bodyLarge,
-                    textAlign = TextAlign.Center
+                CircularProgressIndicator(
+                    modifier = Modifier.align(Alignment.Center)
                 )
+            }
+
+            else -> {
+                // This state should not be visible on the HomeScreen
             }
         }
     }

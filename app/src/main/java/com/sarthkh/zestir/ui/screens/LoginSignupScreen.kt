@@ -3,9 +3,12 @@ package com.sarthkh.zestir.ui.screens
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
@@ -14,6 +17,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
@@ -21,6 +25,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.google.android.gms.auth.api.signin.GoogleSignIn
@@ -45,6 +50,7 @@ fun LoginSignupScreen(
     var passwordError by remember { mutableStateOf<String?>(null) }
     var nameError by remember { mutableStateOf<String?>(null) }
 
+    val scrollState = rememberScrollState()
     val focusManager = LocalFocusManager.current
     val context = LocalContext.current
 
@@ -80,16 +86,26 @@ fun LoginSignupScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp)
+            .imePadding()
+            .systemBarsPadding()
     ) {
         Column(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(scrollState)
+                .padding(32.dp)
+                .pointerInput(Unit) {
+                    detectTapGestures(onTap = {
+                        focusManager.clearFocus()
+                    })
+                },
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
                 text = if (isLogin) "Welcome Back" else "Create Account",
-                style = MaterialTheme.typography.headlineMedium
+                style = MaterialTheme.typography.headlineMedium,
+                textAlign = TextAlign.Center
             )
 
             Spacer(modifier = Modifier.height(32.dp))
@@ -99,46 +115,40 @@ fun LoginSignupScreen(
                 enter = fadeIn() + expandVertically(),
                 exit = fadeOut() + shrinkVertically()
             ) {
-                OutlinedTextField(
+                CustomTextField(
                     value = name,
                     onValueChange = { name = it; nameError = null },
-                    label = { Text("Name") },
-                    isError = nameError != null,
-                    supportingText = { nameError?.let { Text(it) } },
+                    label = "Name",
+                    error = nameError,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                     keyboardActions = KeyboardActions(onNext = {
                         focusManager.moveFocus(FocusDirection.Down)
-                    }),
-                    modifier = Modifier.fillMaxWidth()
+                    })
                 )
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
-            OutlinedTextField(
+            CustomTextField(
                 value = email,
                 onValueChange = { email = it; emailError = null },
-                label = { Text("Email") },
-                isError = emailError != null,
-                supportingText = { emailError?.let { Text(it) } },
+                label = "Email",
+                error = emailError,
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Email,
                     imeAction = ImeAction.Next
                 ),
                 keyboardActions = KeyboardActions(onNext = {
                     focusManager.moveFocus(FocusDirection.Down)
-                }),
-                modifier = Modifier.fillMaxWidth()
+                })
             )
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            OutlinedTextField(
+            CustomTextField(
                 value = password,
                 onValueChange = { password = it; passwordError = null },
-                label = { Text("Password") },
-                isError = passwordError != null,
-                supportingText = { passwordError?.let { Text(it) } },
-                visualTransformation = if (isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                label = "Password",
+                error = passwordError,
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Password,
                     imeAction = ImeAction.Done
@@ -146,16 +156,25 @@ fun LoginSignupScreen(
                 keyboardActions = KeyboardActions(onDone = {
                     focusManager.clearFocus()
                 }),
-                trailingIcon = {
-                    IconButton(onClick = { isPasswordVisible = !isPasswordVisible }) {
-                        Icon(
-                            imageVector = if (isPasswordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                            contentDescription = if (isPasswordVisible) "Hide password" else "Show password"
-                        )
-                    }
-                },
-                modifier = Modifier.fillMaxWidth()
+                isPassword = true,
+                isPasswordVisible = isPasswordVisible,
+                onPasswordVisibilityToggle = { isPasswordVisible = !isPasswordVisible }
             )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            AnimatedVisibility(
+                visible = isLogin,
+                enter = fadeIn() + expandVertically(),
+                exit = fadeOut() + shrinkVertically()
+            ) {
+                TextButton(
+                    onClick = { showResetPassword = true },
+                    modifier = Modifier.align(Alignment.End)
+                ) {
+                    Text("Forgot Password?")
+                }
+            }
 
             Spacer(modifier = Modifier.height(24.dp))
 
@@ -174,7 +193,6 @@ fun LoginSignupScreen(
                             viewModel.signUp(email, password)
                         }
                     } else {
-                        // Update error states
                         nameError = nameErr
                         emailError = emailErr
                         passwordError = passwordErr
@@ -182,7 +200,9 @@ fun LoginSignupScreen(
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(50.dp)
+                    .height(56.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                shape = MaterialTheme.shapes.medium
             ) {
                 Text(text = if (isLogin) "Login" else "Sign Up")
             }
@@ -200,7 +220,9 @@ fun LoginSignupScreen(
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(50.dp)
+                    .height(56.dp),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary),
+                shape = MaterialTheme.shapes.medium
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -223,18 +245,17 @@ fun LoginSignupScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
-                    text = if (isLogin) "Don't have an account? Sign Up" else "Already have an account? Login"
+                    text = if (isLogin) "Don't have an account? Sign Up" else "Already have an account? Login",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.primary
                 )
             }
+        }
 
-            if (isLogin) {
-                TextButton(
-                    onClick = { showResetPassword = true },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Forgot Password?")
-                }
-            }
+        if (authState is AuthState.Loading) {
+            CircularProgressIndicator(
+                modifier = Modifier.align(Alignment.Center)
+            )
         }
 
         if (showResetPassword) {
@@ -267,13 +288,45 @@ fun LoginSignupScreen(
                 }
             )
         }
-
-        if (authState is AuthState.Loading) {
-            CircularProgressIndicator(
-                modifier = Modifier.align(Alignment.Center)
-            )
-        }
     }
+}
+
+@Composable
+fun CustomTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    error: String?,
+    keyboardOptions: KeyboardOptions,
+    keyboardActions: KeyboardActions,
+    isPassword: Boolean = false,
+    isPasswordVisible: Boolean = false,
+    onPasswordVisibilityToggle: () -> Unit = {}
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text(label) },
+        isError = error != null,
+        keyboardOptions = keyboardOptions,
+        keyboardActions = keyboardActions,
+        visualTransformation = when {
+            isPassword && !isPasswordVisible -> PasswordVisualTransformation()
+            else -> VisualTransformation.None
+        },
+        modifier = Modifier.fillMaxWidth(),
+        trailingIcon = if (isPassword) {
+            {
+                IconButton(onClick = onPasswordVisibilityToggle) {
+                    Icon(
+                        imageVector = if (isPasswordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                        contentDescription = if (isPasswordVisible) "Hide password" else "Show password"
+                    )
+                }
+            }
+        } else null,
+        supportingText = { error?.let { Text(it) } }
+    )
 }
 
 private fun validateInputs(

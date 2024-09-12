@@ -24,9 +24,11 @@ fun NavGraph(authViewModel: AuthViewModel = hiltViewModel()) {
             is AuthState.Authenticated -> navController.navigate("home") {
                 popUpTo("get_started") { inclusive = true }
             }
+
             is AuthState.Unauthenticated -> navController.navigate("get_started") {
                 popUpTo("home") { inclusive = true }
             }
+
             else -> {} // Do nothing for other states
         }
     }
