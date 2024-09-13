@@ -14,6 +14,7 @@ import com.sarthkh.zestir.auth.AuthState
 import com.sarthkh.zestir.auth.AuthViewModel
 import com.sarthkh.zestir.ui.NavGraph
 import com.sarthkh.zestir.ui.theme.ZestirTheme
+import com.sarthkh.zestir.utils.NetworkConnectivity
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
@@ -22,6 +23,8 @@ class MainActivity : ComponentActivity() {
         val splashScreen = installSplashScreen()
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        val networkConnectivity = NetworkConnectivity(applicationContext)
 
         setContent {
             val authViewModel: AuthViewModel = hiltViewModel()
@@ -32,7 +35,7 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    NavGraph(authViewModel)
+                    NavGraph(authViewModel, networkConnectivity)
                 }
             }
         }
