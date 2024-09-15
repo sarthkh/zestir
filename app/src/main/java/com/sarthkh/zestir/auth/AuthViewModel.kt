@@ -3,6 +3,7 @@ package com.sarthkh.zestir.auth
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseUser
+import com.sarthkh.zestir.onboarding.OnboardingRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -10,7 +11,10 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
-class AuthViewModel @Inject constructor(private val repository: AuthRepository) : ViewModel() {
+class AuthViewModel @Inject constructor(
+    private val repository: AuthRepository,
+    private val onboardingRepository: OnboardingRepository
+) : ViewModel() {
 
     private val _authState = MutableStateFlow<AuthState>(AuthState.Initial)
     val authState: StateFlow<AuthState> = _authState
@@ -25,7 +29,9 @@ class AuthViewModel @Inject constructor(private val repository: AuthRepository) 
     }
 
     fun signUp(email: String, password: String) = handleAuthAction {
-        repository.signUp(email, password)
+        repository.signUp(email, password).also {
+            onboardingRepository.resetOnboarding()
+        }
     }
 
     fun login(email: String, password: String) = handleAuthAction {
@@ -33,7 +39,9 @@ class AuthViewModel @Inject constructor(private val repository: AuthRepository) 
     }
 
     fun googleSignIn(idToken: String) = handleAuthAction {
-        repository.googleSignIn(idToken)
+        repository.googleSignIn(idToken).also {
+            onboardingRepository.resetOnboarding()
+        }
     }
 
     fun logout() {

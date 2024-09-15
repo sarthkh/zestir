@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <style name="Theme.Zestir.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">#FDFDF5</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_dark</item>
+        <item name="postSplashScreenTheme">@style/Theme.Zestir</item>
+    </style>
+</resources>
