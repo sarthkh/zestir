@@ -20,10 +20,14 @@ class OnboardingViewModel @Inject constructor(
     private val _currentStep = MutableStateFlow(1)
     val currentStep: StateFlow<Int> = _currentStep
 
+    private val _userName = MutableStateFlow<String>("")
+    val userName: StateFlow<String> = _userName
+
     init {
         viewModelScope.launch {
             authRepository.currentUser.collect { user ->
                 if (user != null) {
+                    _userName.value = user.displayName ?: "there"
                     checkOnboardingStatus()
                 } else {
                     _onboardingState.value = OnboardingState.Unauthenticated
@@ -49,27 +53,38 @@ class OnboardingViewModel @Inject constructor(
         viewModelScope.launch {
             repository.saveCurrentStep(step)
             repository.saveOnboardingData(data)
-            if (step == TOTAL_STEPS) {
-                repository.completeOnboarding()
-                _onboardingState.value = OnboardingState.Completed
+            goToNextStep()
+        }
+    }
+
+    fun goToNextStep() {
+        viewModelScope.launch {
+            val nextStep = _currentStep.value + 1
+            if (nextStep > TOTAL_STEPS) {
+                completeOnboarding()
             } else {
-                _currentStep.value = step + 1
-                _onboardingState.value = OnboardingState.InProgress(step + 1)
+                _currentStep.value = nextStep
+                repository.saveCurrentStep(nextStep)
+                _onboardingState.value = OnboardingState.InProgress(nextStep)
             }
         }
     }
 
-    fun skipStep() {
+    fun goToPreviousStep() {
         viewModelScope.launch {
-            val nextStep = _currentStep.value + 1
-            repository.saveCurrentStep(nextStep)
-            if (nextStep > TOTAL_STEPS) {
-                repository.completeOnboarding()
-                _onboardingState.value = OnboardingState.Completed
-            } else {
-                _currentStep.value = nextStep
-                _onboardingState.value = OnboardingState.InProgress(nextStep)
+            val previousStep = _currentStep.value - 1
+            if (previousStep >= 1) {
+                _currentStep.value = previousStep
+                repository.saveCurrentStep(previousStep)
+                _onboardingState.value = OnboardingState.InProgress(previousStep)
             }
+        }
+    }
+
+    fun completeOnboarding() {
+        viewModelScope.launch {
+            repository.completeOnboarding()
+            _onboardingState.value = OnboardingState.Completed
         }
     }
 

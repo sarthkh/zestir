@@ -2,15 +2,21 @@ package com.sarthkh.zestir.onboarding
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.FitnessCenter
+import androidx.compose.material.icons.filled.SelfImprovement
+import androidx.compose.material.icons.filled.Task
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -24,11 +30,16 @@ fun OnboardingScreen(
 ) {
     val onboardingState by viewModel.onboardingState.collectAsState()
     val currentStep by viewModel.currentStep.collectAsState()
+    val pagerState = rememberPagerState(pageCount = { OnboardingViewModel.TOTAL_STEPS })
 
     LaunchedEffect(onboardingState) {
         if (onboardingState is OnboardingState.Completed) {
             onComplete()
         }
+    }
+
+    LaunchedEffect(currentStep) {
+        pagerState.animateScrollToPage(currentStep - 1)
     }
 
     Box(
@@ -40,8 +51,7 @@ fun OnboardingScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(16.dp)
-                .verticalScroll(rememberScrollState()),
+                .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -53,22 +63,21 @@ fun OnboardingScreen(
                     .clip(RoundedCornerShape(4.dp))
             )
 
-            when (val state = onboardingState) {
-                is OnboardingState.Loading -> CircularProgressIndicator()
-                is OnboardingState.InProgress -> {
-                    when (state.currentStep) {
-                        1 -> WelcomeStep(onNext = { viewModel.saveStep(1, emptyMap()) })
-                        // Add other steps here
-                        else -> Text("Step $currentStep")
-                    }
-                }
-
-                is OnboardingState.Completed -> {
-                    // This should not be visible as we navigate away when completed
-                }
-
-                is OnboardingState.Unauthenticated -> {
-                    // Handle unauthenticated state
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+            ) { page ->
+                when (page + 1) {
+                    1 -> WelcomeStep(viewModel)
+                    2 -> PrimaryGoalSelectionStep(
+                        onGoalSelected = { goal ->
+                            viewModel.saveStep(2, mapOf("primaryGoal" to goal))
+                        }
+                    )
+                    // Add other steps here
+                    else -> Text("Step ${page + 1}")
                 }
             }
 
@@ -76,15 +85,28 @@ fun OnboardingScreen(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                TextButton(onClick = { viewModel.skipStep() }) {
-                    Text("Skip")
+                TextButton(
+                    onClick = {
+                        if (currentStep > 1) {
+                            viewModel.goToPreviousStep()
+                        }
+                    },
+                    enabled = currentStep > 1
+                ) {
+                    Text("Previous")
                 }
                 Button(
-                    onClick = { /* Handle next action */ },
+                    onClick = {
+                        if (currentStep < OnboardingViewModel.TOTAL_STEPS) {
+                            viewModel.goToNextStep()
+                        } else {
+                            viewModel.completeOnboarding()
+                        }
+                    },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                     shape = MaterialTheme.shapes.medium
                 ) {
-                    Text("Next")
+                    Text(if (currentStep == OnboardingViewModel.TOTAL_STEPS) "Finish" else "Next")
                 }
             }
         }
@@ -92,7 +114,9 @@ fun OnboardingScreen(
 }
 
 @Composable
-fun WelcomeStep(onNext: () -> Unit) {
+fun WelcomeStep(viewModel: OnboardingViewModel) {
+    val userName by viewModel.userName.collectAsState()
+
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -104,7 +128,7 @@ fun WelcomeStep(onNext: () -> Unit) {
         )
         Spacer(modifier = Modifier.height(24.dp))
         Text(
-            "Welcome to Zestir",
+            "Welcome to Zestir, $userName!",
             style = MaterialTheme.typography.headlineMedium,
             color = MaterialTheme.colorScheme.onBackground
         )
@@ -116,19 +140,109 @@ fun WelcomeStep(onNext: () -> Unit) {
             color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
         )
         Spacer(modifier = Modifier.height(24.dp))
-        Button(
-            onClick = onNext,
+        Text(
+            "Let's get started with your personalized journey!",
+            style = MaterialTheme.typography.bodyMedium,
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.primary
+        )
+    }
+}
+
+@Composable
+fun PrimaryGoalSelectionStep(onGoalSelected: (String) -> Unit) {
+    var selectedGoal by remember { mutableStateOf<String?>(null) }
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            "What's your primary goal?",
+            style = MaterialTheme.typography.headlineSmall,
+            color = MaterialTheme.colorScheme.onBackground
+        )
+        Spacer(modifier = Modifier.height(24.dp))
+        GoalOption(
+            title = "Fitness Focus",
+            description = "Weight management, strength improvement, flexibility",
+            icon = Icons.Default.FitnessCenter,
+            isSelected = selectedGoal == "fitness",
+            onSelect = {
+                selectedGoal = "fitness"
+                onGoalSelected("fitness")
+            }
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        GoalOption(
+            title = "Productivity Focus",
+            description = "Time management, focus enhancement, task organization",
+            icon = Icons.Default.Task,
+            isSelected = selectedGoal == "productivity",
+            onSelect = {
+                selectedGoal = "productivity"
+                onGoalSelected("productivity")
+            }
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        GoalOption(
+            title = "Holistic Wellness",
+            description = "Stress reduction, better sleep, energy optimization",
+            icon = Icons.Default.SelfImprovement,
+            isSelected = selectedGoal == "wellness",
+            onSelect = {
+                selectedGoal = "wellness"
+                onGoalSelected("wellness")
+            }
+        )
+    }
+}
+
+@Composable
+fun GoalOption(
+    title: String,
+    description: String,
+    icon: ImageVector,
+    isSelected: Boolean,
+    onSelect: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onSelect),
+        shape = MaterialTheme.shapes.medium,
+        colors = CardDefaults.cardColors(
+            containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer
+            else MaterialTheme.colorScheme.surface
+        )
+    ) {
+        Row(
             modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-            shape = MaterialTheme.shapes.medium
+                .padding(16.dp)
+                .fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                "Get Started",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onPrimary
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = if (isSelected) MaterialTheme.colorScheme.primary
+                else MaterialTheme.colorScheme.onSurface
             )
+            Spacer(modifier = Modifier.width(16.dp))
+            Column {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = if (isSelected) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
+                    else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                )
+            }
         }
     }
 }
